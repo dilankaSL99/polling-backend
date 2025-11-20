@@ -1,4 +1,4 @@
-imp`ort { genSalt, hash, compare } from 'bcrypt';`
+import { genSalt, hash, compare } from 'bcrypt';
 import { sign } from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
 import { get } from 'axios';
@@ -163,4 +163,5 @@ class AuthController {
 }
 
 // Export a single instance of the controller
+// eslint-disable-next-line import/no-anonymous-default-export
 export default new AuthController();
