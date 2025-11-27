@@ -1,6 +1,18 @@
-import { Schema, model } from 'mongoose';
+const mongoose = require('mongoose');
 
-const UserSchema = new Schema({
+const UserSchema = new mongoose.Schema({
+  userId: {
+    type: Number,
+    unique: true,
+  },
+  firstName: {
+    type: String,
+    required: true,
+  },
+  lastName: {
+    type: String,
+    required: true,
+  },
   email: {
     type: String,
     required: true,
@@ -8,7 +20,6 @@ const UserSchema = new Schema({
   },
   password: {
     type: String,
-    // Password is not required if signing in via Google/Facebook
     required: function() { return !this.googleId && !this.facebookId; }
   },
   googleId: {
@@ -25,4 +36,17 @@ const UserSchema = new Schema({
   },
 });
 
-export default model('User', UserSchema);
+// Auto-increment userId before saving
+UserSchema.pre('save', async function(next) {
+  if (this.isNew && !this.userId) {
+    try {
+      const lastUser = await this.constructor.findOne({}, {}, { sort: { 'userId': -1 } });
+      this.userId = lastUser ? lastUser.userId + 1 : 1;
+    } catch (error) {
+      return next(error);
+    }
+  }
+  next();
+});
+
+module.exports = mongoose.models.User || mongoose.model('User', UserSchema);

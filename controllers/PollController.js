@@ -1,16 +1,14 @@
-import Poll, { find } from '../models/poll';
-import ApiError from '../utils/ApiError';
+const Poll = require('../models/poll');
+const ApiError = require('../utils/ApiError');
 
 class PollController {
 
   // Create a new Poll
   async createPoll(req, res, next) {
     try {
-      // req.userId comes from your AuthMiddleware
       const creatorId = req.userId;
       const { title, description, category, options } = req.body;
 
-      // Basic Validation
       if (!title || !category || !options) {
         throw new ApiError(400, 'Please provide title, category, and options.');
       }
@@ -19,7 +17,6 @@ class PollController {
         throw new ApiError(400, 'A poll must have at least 2 options.');
       }
 
-      // Format options for schema
       const formattedOptions = options.map(opt => ({
         text: typeof opt === 'string' ? opt : opt.text,
         votes: 0
@@ -45,11 +42,10 @@ class PollController {
     }
   }
 
-  // Get All Polls (Public Feed)
+  // Get All Polls
   async getAllPolls(req, res, next) {
     try {
-      // Populate fetches the creator's email instead of just showing the ID
-      const polls = await find({})
+      const polls = await Poll.find({})
         .sort({ createdAt: -1 })
         .populate('creatorId', 'email'); 
 
@@ -59,11 +55,11 @@ class PollController {
     }
   }
 
-  // Get Polls by Current User
+  // Get My Polls
   async getMyPolls(req, res, next) {
     try {
       const userId = req.userId;
-      const polls = await find({ creatorId: userId }).sort({ createdAt: -1 });
+      const polls = await Poll.find({ creatorId: userId }).sort({ createdAt: -1 });
       res.status(200).json(polls);
     } catch (error) {
       next(error);
@@ -71,4 +67,4 @@ class PollController {
   }
 }
 
-export default new PollController();
+module.exports = new PollController();

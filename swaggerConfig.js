@@ -1,8 +1,8 @@
-import swaggerJsdoc from 'swagger-jsdoc';
+const swaggerJsdoc = require('swagger-jsdoc');
 
 const options = {
   definition: {
-    openapi: '3.0.0', 
+    openapi: '3.0.0',
     info: {
       title: 'Polling API',
       version: '1.0.0',
@@ -46,8 +46,7 @@ const options = {
             userId: { type: 'string' },
           },
         },
-        
-        // --- POLL SCHEMAS (NEW) ---
+        // --- POLL SCHEMAS ---
         CreatePollRequest: {
           type: 'object',
           required: ['title', 'category', 'options'],
@@ -88,7 +87,6 @@ const options = {
             createdAt: { type: 'string', format: 'date-time' }
           }
         },
-        
         // --- GENERAL ERROR ---
         ErrorResponse: {
           type: 'object',
@@ -106,9 +104,9 @@ const options = {
       },
     },
   },
-  apis: ['./routes/*.js'], 
+  apis: ['./routes/*.js'],
 };
 
 const swaggerSpec = swaggerJsdoc(options);
 
-export default swaggerSpec;
+module.exports = swaggerSpec;

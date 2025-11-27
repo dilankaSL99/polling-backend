@@ -1,159 +1,232 @@
-import { genSalt, hash, compare } from 'bcrypt';
-import { sign } from 'jsonwebtoken';
-import { OAuth2Client } from 'google-auth-library';
-import { get } from 'axios';
-import User, { findOne, findOneAndUpdate, findById } from '../models/user';
-import ApiError from '../utils/ApiError'; 
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const { OAuth2Client } = require('google-auth-library');
+const axios = require('axios');
+const User = require('../models/User'); 
+const ApiError = require('../utils/ApiError'); 
 
-// Helper function to create a token - expires in 1h
 const createToken = (userId) => {
   const payload = { userId };
-  return sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
+  return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
 class AuthController {
   
-  //Resister
   async register(req, res, next) {
     try {
-      const { email, password } = req.body;
+      const { firstName, lastName, email, password } = req.body;
       
-      //Check both are provided
-      if (!email || !password) {
-        throw new ApiError(400, 'Please provide both email and password.');
+      if (!firstName || !lastName || !email || !password) {
+        throw new ApiError(400, 'Please provide first name, last name, email and password.');
       }
       
-      //Check if the user email already exists
-      const existingUser = await findOne({ email });
+      const existingUser = await User.findOne({ email });
       if (existingUser) {
         throw new ApiError(400, 'Email already in use.');
       }
       
-      //Generate a salt and hash the password
-      const salt = await genSalt(10);
-      const hashedPassword = await hash(password, salt);
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
       
-      //Create a new User
-      const newUser = new User({ email, password: hashedPassword });
+      const newUser = new User({ 
+        firstName,
+        lastName,
+        email, 
+        password: hashedPassword 
+      });
       await newUser.save();
 
-      res.status(201).json({ message: 'User registered successfully!' });
+      res.status(201).json({ 
+        message: 'User registered successfully!',
+        userId: newUser.userId 
+      });
 
     } catch (error) {
       next(error); 
     }
   }
 
-  // Login 
   async login(req, res, next) {
     try {
       const { email, password } = req.body;
       
-      //Check both are provided
       if (!email || !password) {
         throw new ApiError(400, 'Please provide both email and password.');
       }
       
-      //Find the user from the database
-      const user = await findOne({ email });
+      const user = await User.findOne({ email });
       if (!user) {
         throw new ApiError(400, 'Invalid credentials.');
       }
       
-      //Check if the user is register via SM
+      // If user exists but has no password (e.g. created via Google), block login
       if (!user.password) {
-        throw new ApiError(400, 'User registered via social media.');
+        throw new ApiError(400, 'User registered via social media. Please login with Google/Facebook.');
       }
       
-      //Check the hashed passwords
-      const isMatch = await compare(password, user.password);
+      const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) {
         throw new ApiError(400, 'Invalid credentials.');
       }
       
-      //Create a token if valid
-      const token = createToken(user._id);
-      res.status(200).json({ message: 'Login successful!', token });
+      const token = createToken(user.userId);
+      res.status(200).json({ 
+        message: 'Login successful!', 
+        token,
+        user: {
+          userId: user.userId,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email
+        }
+      });
 
     } catch (error) {
       next(error); 
     }
   }
 
-  // Google Auth
+  // --- GOOGLE AUTH ---
   async authGoogle(req, res, next) {
     try {
       const { idToken } = req.body;
-      //Create a instance
-      const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-      //Verify the token with googleAPI
-      const ticket = await googleClient.verifyIdToken({
+      
+      // 1. Verify the token with Google
+      const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+      const ticket = await client.verifyIdToken({
           idToken: idToken,
           audience: process.env.GOOGLE_CLIENT_ID,
       });
-      //Extracts the user information from the ticket
       const payload = ticket.getPayload();
       
-      //Checks if the user exists in your database by googleId and create if not
-      const user = await findOneAndUpdate(
-          { googleId: payload['sub'] },
-          { $set: { email: payload['email'], googleId: payload['sub'] } },
-          { upsert: true, new: true }
-      );
+      // 2. Extract user info from Google
+      const email = payload['email'];
+      const googleId = payload['sub'];
+      const firstName = payload['given_name'] || '';
+      const lastName = payload['family_name'] || '';
       
-      //Generate a token
-      const token = createToken(user._id);
-      res.status(200).json({ message: 'Google login successful!', token });
+      // 3. Find existing user by googleId or email
+      let user = await User.findOne({ 
+        $or: [{ googleId }, { email }] 
+      });
+      
+      if (user) {
+        // Update existing user with Google ID if not set
+        if (!user.googleId) {
+          user.googleId = googleId;
+          await user.save();
+        }
+      } else {
+        // Create new user
+        user = new User({
+          firstName,
+          lastName,
+          email,
+          googleId
+        });
+        await user.save();
+      }
+      
+      // 4. Generate JWT for our app
+      const token = createToken(user.userId);
+      res.status(200).json({ 
+        message: 'Google login successful!', 
+        token,
+        user: {
+          userId: user.userId,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email
+        }
+      });
 
     } catch (error) {
       next(error); 
     }
   }
 
-  //Facebook Auth 
   async authFacebook(req, res, next) {
     try {
-      //Extracts the accessToken sent by the frontend from Facebook login
       const { accessToken } = req.body;
-      //Calls Facebook Graph API to get user info using the accessToken.
-      const { data } = await get(
-          `https://graph.facebook.com/me?fields=id,email&access_token=${accessToken}`
-      );
       
-      //Checks if the response contains both id and email.
-      if (!data.id || !data.email) {
-        throw new ApiError(400, 'Invalid Facebook token.');
+      if (!accessToken) {
+        throw new ApiError(400, 'Access token is required.');
       }
-    
-      //Checks if the user exists in your database by facebookId and create if no
-      const user = await findOneAndUpdate(
-          { facebookId: data.id },
-          { $set: { email: data.email, facebookId: data.id } },
-          { upsert: true, new: true }
+      
+      // 1. Verify token with Facebook and get user info
+      const fbResponse = await axios.get(
+        `https://graph.facebook.com/me?fields=id,first_name,last_name,email&access_token=${accessToken}`
       );
       
-      //Create the token
-      const token = createToken(user._id);
-      res.status(200).json({ message: 'Facebook login successful!', token });
+      const { id: facebookId, first_name, last_name, email } = fbResponse.data;
+      
+      if (!email) {
+        throw new ApiError(400, 'Email not provided by Facebook. Please grant email permission.');
+      }
+      
+      // 2. Find existing user by facebookId or email
+      let user = await User.findOne({ 
+        $or: [{ facebookId }, { email }] 
+      });
+      
+      if (user) {
+        // Update existing user with Facebook ID if not set
+        if (!user.facebookId) {
+          user.facebookId = facebookId;
+          await user.save();
+        }
+      } else {
+        // Create new user
+        user = new User({
+          firstName: first_name || '',
+          lastName: last_name || '',
+          email,
+          facebookId
+        });
+        await user.save();
+      }
+      
+      // 3. Generate JWT for our app
+      const token = createToken(user.userId);
+      res.status(200).json({ 
+        message: 'Facebook login successful!', 
+        token,
+        user: {
+          userId: user.userId,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email
+        }
+      });
 
     } catch (error) {
-      next(error); 
+      if (error.response) {
+        next(new ApiError(400, 'Invalid Facebook access token.'));
+      } else {
+        next(error);
+      }
     }
   }
 
-  // Get Profile
   async getProfile(req, res, next) {
     try {
-      // req.userId is added by the authenticateToken middleware
-      const user = await findById(req.userId);
+      // Make sure userId exists
+      if (!req.userId) {
+        throw new ApiError(401, 'User ID not found in token.');
+      }
+
+      const user = await User.findOne({ userId: req.userId });
 
       if (!user) {
         throw new ApiError(404, 'User not found.');
       }
 
       res.status(200).json({ 
-        email: user.email, 
-        userId: user.userId 
+        userId: user.userId,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        createdAt: user.createdAt
       });
 
     } catch (error) {
@@ -162,6 +235,4 @@ class AuthController {
   }
 }
 
-// Export a single instance of the controller
-// eslint-disable-next-line import/no-anonymous-default-export
-export default new AuthController();
+module.exports = new AuthController();

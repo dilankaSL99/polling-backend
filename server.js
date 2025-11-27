@@ -1,36 +1,35 @@
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 require('dotenv').config();
-import express, { json } from 'express';
-import Database from './config/Database';
-import authRoutes from './routes/auth';
-import pollRoutes from './routes/polls'; // <-- IMPORT THIS
-import { handle } from './middleware/ErrorHandler';
-import { serve, setup } from 'swagger-ui-express';
-import swaggerSpec from './swaggerConfig'; 
+const express = require('express');
+const swaggerUi = require('swagger-ui-express');
 
-//Initialize the app
+// Imports
+const Database = require('./config/Database'); 
+const authRoutes = require('./routes/auth');
+const pollRoutes = require('./routes/pollRoutes');
+const ErrorHandler = require('./middleware/ErrorHandler'); 
+const swaggerSpec = require('./swaggerConfig');
+
+// Initialize the app
 const app = express();
-
-//Set the port
 const PORT = process.env.PORT || 3000;
 
-//Connect to Database
+// Connect to Database
 Database.connect();
 
-// Add Middleware
-app.use(json());
+// Middleware
+app.use(express.json());
 
-//Sets up Swagger UI at /api-docs
-app.use('/api-docs', serve, setup(swaggerSpec));
+// Swagger UI
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-//API Routes
+// API Routes
 app.use('/api', authRoutes);
-app.use('/api/polls', pollRoutes); 
+app.use('/api/polls', pollRoutes);
 
-//Error Handler
-app.use(handle);
+// Error Handler (Must be last)
+app.use(ErrorHandler.handle);
 
-// Start the Server
+// Start Server
 app.listen(PORT, () => {
   console.log(`Server is running successfully on http://localhost:${PORT}`);
   console.log(`API documentation available at http://localhost:${PORT}/api-docs`);

@@ -1,4 +1,4 @@
-import { Schema, model } from 'mongoose';
+const { Schema, model } = require('mongoose');
 
 const PollSchema = new Schema({
   title: {
@@ -14,14 +14,12 @@ const PollSchema = new Schema({
     type: String,
     required: true,
   },
-  // Array of option objects
   options: [
     {
       text: { type: String, required: true },
       votes: { type: Number, default: 0 }, 
     }
   ],
-  // Link to the User who created it
   creatorId: {
     type: Schema.Types.ObjectId,
     ref: 'User',
@@ -37,4 +35,4 @@ const PollSchema = new Schema({
   }
 });
 
-export default model('Poll', PollSchema);
+module.exports = model('Poll', PollSchema);
