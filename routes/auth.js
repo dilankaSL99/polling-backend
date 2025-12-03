@@ -4,7 +4,6 @@ const AuthController = require('../controllers/AuthController');
 const authenticateToken = require('../middleware/AuthMiddleware.js');
 
 // Public Routes
-
 /**
  * @swagger
  * /api/register:
@@ -135,7 +134,6 @@ router.post('/auth/facebook', AuthController.authFacebook);
 
 
 //  Protected Routes
-
 /**
  * @swagger
  * /api/profile:
@@ -172,5 +170,83 @@ router.post('/auth/facebook', AuthController.authFacebook);
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.get('/profile', authenticateToken, AuthController.getProfile);
+
+/**
+ * @swagger
+ * /api/profile/update:
+ *   put:
+ *     summary: Update user profile (first name, last name)
+ *     description: Updates the logged-in user's profile information
+ *     tags: [User]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               firstName:
+ *                 type: string
+ *               lastName:
+ *                 type: string
+ *     responses:
+ *       '200':
+ *         description: Profile updated successfully
+ *       '401':
+ *         description: Unauthorized
+ *       '404':
+ *         description: User not found
+ */
+router.put('/profile/update', authenticateToken, AuthController.updateProfile);
+
+/**
+ * @swagger
+ * /api/profile/picture:
+ *   put:
+ *     summary: Upload or update profile picture
+ *     description: Uploads a base64 encoded profile picture
+ *     tags: [User]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               profilePicture:
+ *                 type: string
+ *                 description: Base64 encoded image string
+ *     responses:
+ *       '200':
+ *         description: Profile picture uploaded successfully
+ *       '400':
+ *         description: Invalid image format
+ *       '401':
+ *         description: Unauthorized
+ */
+router.put('/profile/picture', authenticateToken, AuthController.uploadProfilePicture);
+
+/**
+ * @swagger
+ * /api/profile/picture:
+ *   delete:
+ *     summary: Delete profile picture
+ *     description: Removes the user's profile picture
+ *     tags: [User]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: Profile picture deleted successfully
+ *       '401':
+ *         description: Unauthorized
+ *       '404':
+ *         description: User not found
+ */
+router.delete('/profile/picture', authenticateToken, AuthController.deleteProfilePicture);
 
 module.exports = router;

@@ -11,11 +11,7 @@ async function cleanDatabase() {
     await mongoose.connection.db.dropCollection('users');
     console.log('✅ Users collection dropped successfully');
 
-    // Optionally, also drop polls if you want a complete fresh start
-    // await mongoose.connection.db.dropCollection('polls');
-    // console.log('✅ Polls collection dropped successfully');
-
-    console.log('\n🎉 Database cleaned! You can now start fresh with the new schema.');
+    console.log('\n Database cleaned! You can now start fresh with the new schema.');
     
     await mongoose.connection.close();
     console.log('Database connection closed');

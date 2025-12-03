@@ -209,30 +209,151 @@ class AuthController {
   }
 
   async getProfile(req, res, next) {
-    try {
-      // Make sure userId exists
-      if (!req.userId) {
-        throw new ApiError(401, 'User ID not found in token.');
-      }
+  try {
+    // Make sure userId exists
+    if (!req.userId) {
+      throw new ApiError(401, 'User ID not found in token.');
+    }
 
-      const user = await User.findOne({ userId: req.userId });
+    const user = await User.findOne({ userId: req.userId });
 
-      if (!user) {
-        throw new ApiError(404, 'User not found.');
-      }
+    if (!user) {
+      throw new ApiError(404, 'User not found.');
+    }
 
-      res.status(200).json({ 
+    res.status(200).json({ 
+      userId: user.userId,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      profilePicture: user.profilePicture, // Include profile picture
+      createdAt: user.createdAt
+    });
+
+  } catch (error) {
+    next(error);
+  }
+  }
+  // Add these methods to your AuthController.js class
+
+// ========================================
+// UPDATE PROFILE
+// ========================================
+async updateProfile(req, res, next) {
+  try {
+    // Make sure userId exists
+    if (!req.userId) {
+      throw new ApiError(401, 'User ID not found in token.');
+    }
+
+    const { firstName, lastName } = req.body;
+
+    // Validation
+    if (!firstName || !lastName) {
+      throw new ApiError(400, 'Please provide first name and last name.');
+    }
+
+    // Find user by numeric userId
+    const user = await User.findOne({ userId: req.userId });
+
+    if (!user) {
+      throw new ApiError(404, 'User not found.');
+    }
+
+    // Update user fields
+    user.firstName = firstName;
+    user.lastName = lastName;
+
+    await user.save();
+
+    res.status(200).json({
+      message: 'Profile updated successfully!',
+      user: {
         userId: user.userId,
         firstName: user.firstName,
         lastName: user.lastName,
-        email: user.email,
-        createdAt: user.createdAt
-      });
+        email: user.email
+      }
+    });
 
-    } catch (error) {
-      next(error);
-    }
+  } catch (error) {
+    next(error);
   }
+}
+
+// ========================================
+// UPLOAD PROFILE PICTURE
+// ========================================
+async uploadProfilePicture(req, res, next) {
+  try {
+    // Make sure userId exists
+    if (!req.userId) {
+      throw new ApiError(401, 'User ID not found in token.');
+    }
+
+    const { profilePicture } = req.body; // Base64 encoded image
+
+    if (!profilePicture) {
+      throw new ApiError(400, 'Please provide a profile picture.');
+    }
+
+    // Validate base64 format
+    if (!profilePicture.startsWith('data:image/')) {
+      throw new ApiError(400, 'Invalid image format. Please provide a base64 encoded image.');
+    }
+
+    // Find user by numeric userId
+    const user = await User.findOne({ userId: req.userId });
+
+    if (!user) {
+      throw new ApiError(404, 'User not found.');
+    }
+
+    // Save the base64 string directly to the database
+    user.profilePicture = profilePicture;
+    await user.save();
+
+    res.status(200).json({
+      message: 'Profile picture uploaded successfully!',
+      profilePicture: user.profilePicture
+    });
+
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ========================================
+// DELETE PROFILE PICTURE
+// ========================================
+async deleteProfilePicture(req, res, next) {
+  try {
+    // Make sure userId exists
+    if (!req.userId) {
+      throw new ApiError(401, 'User ID not found in token.');
+    }
+
+    // Find user by numeric userId
+    const user = await User.findOne({ userId: req.userId });
+
+    if (!user) {
+      throw new ApiError(404, 'User not found.');
+    }
+
+    // Remove profile picture
+    user.profilePicture = null;
+    await user.save();
+
+    res.status(200).json({
+      message: 'Profile picture deleted successfully!'
+    });
+
+  } catch (error) {
+    next(error);
+  }
+}
+  
+
 }
 
 module.exports = new AuthController();

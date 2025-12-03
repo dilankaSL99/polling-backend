@@ -15,7 +15,7 @@ const options = {
     ],
     components: {
       schemas: {
-        // --- AUTH SCHEMAS ---
+        //Auth Schemas 
         RegisterRequest: {
           type: 'object',
           required: ['email', 'password'],
@@ -46,7 +46,7 @@ const options = {
             userId: { type: 'string' },
           },
         },
-        // --- POLL SCHEMAS ---
+        // Poll Schemas
         CreatePollRequest: {
           type: 'object',
           required: ['title', 'category', 'options'],
@@ -87,7 +87,7 @@ const options = {
             createdAt: { type: 'string', format: 'date-time' }
           }
         },
-        // --- GENERAL ERROR ---
+        //General Error Response
         ErrorResponse: {
           type: 'object',
           properties: {
